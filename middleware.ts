@@ -12,12 +12,13 @@ export async function middleware(request: NextRequest) {
   const accessToken = cookieStore.get('accessToken')?.value;
   const refreshToken = cookieStore.get('refreshToken')?.value;
 
+  // Перевірка, чи маршрут є приватним або публічним
   const isPublicRoute = publicRoutes.some((route) => pathname.includes(route));
   const isPrivateRoute = privateRoutes.some((route) => pathname.includes(route));
 
+  // Якщо немає accessToken, але є refreshToken — намагаємося оновити сесію
   if (!accessToken) {
     if (refreshToken) {
-    
       const data = await checkServerSession();
       const setCookie = data.headers['set-cookie'];
 
@@ -33,7 +34,8 @@ export async function middleware(request: NextRequest) {
           if (parsed.accessToken) cookieStore.set('accessToken', parsed.accessToken, options);
           if (parsed.refreshToken) cookieStore.set('refreshToken', parsed.refreshToken, options);
         }
-       
+
+        // Якщо маршрут публічний, редірект на головну
         if (isPublicRoute) {
           return NextResponse.redirect(new URL('/', request.nextUrl.origin), {
             headers: {
@@ -41,7 +43,7 @@ export async function middleware(request: NextRequest) {
             },
           });
         }
-       
+        // Якщо маршрут приватний, дозволяємо доступ
         if (isPrivateRoute) {
           return NextResponse.next({
             headers: {
@@ -51,25 +53,26 @@ export async function middleware(request: NextRequest) {
         }
       }
     }
-   
+
+    // Якщо ні accessToken, ні refreshToken немає
     if (isPublicRoute) {
       return NextResponse.next();
     }
-
-   
     if (isPrivateRoute) {
       return NextResponse.redirect(new URL('/sign-in', request.nextUrl.origin));
     }
   }
 
-
+  // Якщо accessToken існує
   if (isPublicRoute) {
     return NextResponse.redirect(new URL('/', request.nextUrl.origin));
   }
- 
   if (isPrivateRoute) {
     return NextResponse.next();
   }
+
+  // Обробка за замовчуванням для невідповідних маршрутів
+  return NextResponse.next();
 }
 
 export const config = {
